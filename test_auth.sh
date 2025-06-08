@@ -9,22 +9,23 @@ curl -k -X GET https://localhost:8002/api/protected \
   -H "Accept: application/json"
 
 echo -e "\n\n3. Authentification :"
-curl -k -X POST https://localhost:8002/login \
-  -H "Content-Type: application/x-www-form-urlencoded" \
+TOKEN=$(curl -k -X POST https://localhost:8002/api/login_check \
+  -H "Content-Type: application/json" \
   -H "Accept: application/json" \
-  --data-urlencode "_username=gus@ta.ve" \
-  --data-urlencode "_password=MotPasse123" \
-  -c cookies.txt
+  -d '{"email":"gus@ta.ve","password":"MotPasse123"}' \
+  | grep -o '"token":"[^"]*' | cut -d'"' -f4)
 
-echo -e "\n\n4. Test de la route protégée (avec authentification) :"
+echo "Token JWT obtenu : $TOKEN"
+
+echo -e "\n\n4. Test de la route protégée (avec token JWT) :"
 curl -k -X GET https://localhost:8002/api/protected \
   -H "Accept: application/json" \
-  -b cookies.txt
+  -H "Authorization: Bearer $TOKEN"
 
-echo -e "\n\n5. Test de la route admin (avec authentification) :"
+echo -e "\n\n5. Test de la route admin (avec token JWT) :"
 curl -k -X GET https://localhost:8002/api/admin \
   -H "Accept: application/json" \
-  -b cookies.txt
+  -H "Authorization: Bearer $TOKEN"
 
 # Nettoyage
 rm cookies.txt 
