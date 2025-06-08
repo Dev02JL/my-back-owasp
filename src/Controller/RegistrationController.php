@@ -30,6 +30,28 @@ class RegistrationController extends AbstractController
             ], Response::HTTP_BAD_REQUEST);
         }
 
+        // Validation de l'email
+        if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+            return new JsonResponse([
+                'error' => 'Format d\'email invalide'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Validation de la longueur du mot de passe
+        if (strlen($data['password']) < 8) {
+            return new JsonResponse([
+                'error' => 'Le mot de passe doit contenir au moins 8 caractères'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Vérification si l'email existe déjà
+        $existingUser = $entityManager->getRepository(User::class)->findOneBy(['email' => $data['email']]);
+        if ($existingUser) {
+            return new JsonResponse([
+                'error' => 'Cet email est déjà utilisé'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
         // Création de l'utilisateur
         $user = new User();
         $user->setEmail($data['email']);
