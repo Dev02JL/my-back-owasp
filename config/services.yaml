@@ -26,3 +26,7 @@ services:
     App\EventListener\JWTCreatedListener:
         tags:
             - { name: kernel.event_subscriber }
+
+    App\EventListener\SecurityHeadersListener:
+        tags:
+            - { name: kernel.event_listener, event: kernel.response }
