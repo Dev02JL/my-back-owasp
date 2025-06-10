@@ -22,6 +22,9 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 #[IsGranted('ROLE_USER')]
 class CartController extends AbstractController
 {
+    private const MAX_QUANTITY = 10;
+    private const MIN_QUANTITY = 1;
+
     private EntityManagerInterface $entityManager;
     private ValidatorInterface $validator;
     private CartRepository $cartRepository;
@@ -63,7 +66,8 @@ class CartController extends AbstractController
                 'id' => $product->getId(),
                 'name' => $product->getName(),
                 'price' => $product->getPrice(),
-                'quantity' => $cartItem->getQuantity()
+                'quantity' => $cartItem->getQuantity(),
+                'stock' => $product->getStock()
             ];
         }
 
@@ -90,6 +94,11 @@ class CartController extends AbstractController
             return $this->json(['error' => 'Produit non trouvé'], 404);
         }
 
+        // Vérification du stock
+        if ($product->getStock() <= 0) {
+            return $this->json(['error' => 'Produit en rupture de stock'], 400);
+        }
+
         $cartItem = null;
         foreach ($cart->getCartItems() as $item) {
             if ($item->getProduct()->getId() === $id) {
@@ -99,6 +108,14 @@ class CartController extends AbstractController
         }
 
         if ($cartItem) {
+            // Vérification de la quantité maximale
+            if ($cartItem->getQuantity() >= self::MAX_QUANTITY) {
+                return $this->json(['error' => 'Quantité maximale atteinte'], 400);
+            }
+            // Vérification du stock disponible
+            if ($cartItem->getQuantity() >= $product->getStock()) {
+                return $this->json(['error' => 'Stock insuffisant'], 400);
+            }
             $cartItem->setQuantity($cartItem->getQuantity() + 1);
         } else {
             $cartItem = new CartItem();
@@ -124,8 +141,13 @@ class CartController extends AbstractController
         }
 
         $data = json_decode($request->getContent(), true);
-        if (!isset($data['quantity']) || !is_numeric($data['quantity']) || $data['quantity'] < 1) {
+        if (!isset($data['quantity']) || !is_numeric($data['quantity'])) {
             return $this->json(['error' => 'Quantité invalide'], 400);
+        }
+
+        $quantity = (int) $data['quantity'];
+        if ($quantity < self::MIN_QUANTITY || $quantity > self::MAX_QUANTITY) {
+            return $this->json(['error' => 'La quantité doit être entre ' . self::MIN_QUANTITY . ' et ' . self::MAX_QUANTITY], 400);
         }
 
         $cartItem = null;
@@ -140,7 +162,13 @@ class CartController extends AbstractController
             return $this->json(['error' => 'Produit non trouvé dans le panier'], 404);
         }
 
-        $cartItem->setQuantity($data['quantity']);
+        // Vérification du stock disponible
+        $product = $cartItem->getProduct();
+        if ($quantity > $product->getStock()) {
+            return $this->json(['error' => 'Stock insuffisant'], 400);
+        }
+
+        $cartItem->setQuantity($quantity);
         $this->entityManager->flush();
 
         return $this->json(['message' => 'Quantité mise à jour']);
@@ -189,6 +217,16 @@ class CartController extends AbstractController
             return $this->json(['error' => 'Le panier est vide'], 400);
         }
 
+        // Vérification du stock pour tous les produits
+        foreach ($cartItems as $cartItem) {
+            $product = $cartItem->getProduct();
+            if ($cartItem->getQuantity() > $product->getStock()) {
+                return $this->json([
+                    'error' => 'Stock insuffisant pour le produit ' . $product->getName()
+                ], 400);
+            }
+        }
+
         $order = new Order();
         $order->setUser($user);
         $order->setTotal(0);
@@ -198,6 +236,9 @@ class CartController extends AbstractController
         foreach ($cartItems as $cartItem) {
             $product = $cartItem->getProduct();
             $total += $product->getPrice() * $cartItem->getQuantity();
+            
+            // Mise à jour du stock
+            $product->setStock($product->getStock() - $cartItem->getQuantity());
         }
         $order->setTotal($total);
 

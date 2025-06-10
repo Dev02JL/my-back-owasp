@@ -15,6 +15,7 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 
 #[Route('/api/products/{productId}/reviews')]
 class ReviewController extends AbstractController
@@ -25,7 +26,8 @@ class ReviewController extends AbstractController
         private ReviewRepository $reviewRepository,
         private SerializerInterface $serializer,
         private ValidatorInterface $validator,
-        private TokenStorageInterface $tokenStorage
+        private TokenStorageInterface $tokenStorage,
+        private AuthorizationCheckerInterface $authorizationChecker
     ) {}
 
     #[Route('', name: 'app_review_list', methods: ['GET'])]
@@ -43,6 +45,7 @@ class ReviewController extends AbstractController
     }
 
     #[Route('', name: 'app_review_create', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
     public function create(int $productId, Request $request): JsonResponse
     {
         $product = $this->productRepository->find($productId);
@@ -56,14 +59,35 @@ class ReviewController extends AbstractController
             return new JsonResponse(['message' => 'Utilisateur non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
+        // Vérifier si l'utilisateur a déjà laissé un avis
+        $existingReview = $this->reviewRepository->findOneBy([
+            'user' => $user,
+            'product' => $product
+        ]);
+        if ($existingReview) {
+            return new JsonResponse(['message' => 'Vous avez déjà laissé un avis pour ce produit'], Response::HTTP_BAD_REQUEST);
+        }
+
         $data = json_decode($request->getContent(), true);
         
         if (!$data) {
             return new JsonResponse(['message' => 'Données invalides'], Response::HTTP_BAD_REQUEST);
         }
 
+        // Validation de la note
+        if (!isset($data['rating']) || !is_numeric($data['rating']) || $data['rating'] < 1 || $data['rating'] > 5) {
+            return new JsonResponse(['message' => 'La note doit être un nombre entre 1 et 5'], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Validation du message
+        if (isset($data['message'])) {
+            if (strlen($data['message']) > 1000) {
+                return new JsonResponse(['message' => 'Le message ne doit pas dépasser 1000 caractères'], Response::HTTP_BAD_REQUEST);
+            }
+        }
+
         $review = new Review();
-        $review->setRating($data['rating'] ?? 0);
+        $review->setRating((int) $data['rating']);
         $review->setMessage($data['message'] ?? null);
         $review->setUser($user);
         $review->setProduct($product);
@@ -85,6 +109,7 @@ class ReviewController extends AbstractController
     }
 
     #[Route('/{id}', name: 'app_review_update', methods: ['PUT'])]
+    #[IsGranted('ROLE_USER')]
     public function update(int $productId, int $id, Request $request): JsonResponse
     {
         $review = $this->reviewRepository->find($id);
@@ -109,9 +134,15 @@ class ReviewController extends AbstractController
         }
 
         if (isset($data['rating'])) {
-            $review->setRating($data['rating']);
+            if (!is_numeric($data['rating']) || $data['rating'] < 1 || $data['rating'] > 5) {
+                return new JsonResponse(['message' => 'La note doit être un nombre entre 1 et 5'], Response::HTTP_BAD_REQUEST);
+            }
+            $review->setRating((int) $data['rating']);
         }
         if (isset($data['message'])) {
+            if (strlen($data['message']) > 1000) {
+                return new JsonResponse(['message' => 'Le message ne doit pas dépasser 1000 caractères'], Response::HTTP_BAD_REQUEST);
+            }
             $review->setMessage($data['message']);
         }
 
@@ -131,6 +162,7 @@ class ReviewController extends AbstractController
     }
 
     #[Route('/{id}', name: 'app_review_delete', methods: ['DELETE'])]
+    #[IsGranted('ROLE_USER')]
     public function delete(int $productId, int $id): JsonResponse
     {
         $review = $this->reviewRepository->find($id);

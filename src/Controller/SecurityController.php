@@ -8,12 +8,25 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
+use Symfony\Component\Security\Core\Exception\AccountStatusException;
+use Symfony\Component\Security\Core\Exception\BadCredentialsException;
+use Symfony\Component\Security\Core\Exception\UsernameNotFoundException;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
 
 class SecurityController extends AbstractController
 {
     #[Route('/login', name: 'app_login', methods: ['GET', 'POST'])]
-    public function login(Request $request, AuthenticationUtils $authenticationUtils): Response
+    public function login(Request $request, AuthenticationUtils $authenticationUtils, RateLimiterFactory $loginLimiter): Response
     {
+        $ip = $request->getClientIp();
+        $limiter = $loginLimiter->create($ip);
+
+        if (false === $limiter->consume(1)->isAccepted()) {
+            return new JsonResponse([
+                'error' => 'Trop de tentatives, veuillez patienter avant de réessayer.'
+            ], 429);
+        }
+
         // Si la requête est en JSON ou si l'utilisateur est déjà authentifié
         if ($request->getContentType() === 'json' || $request->headers->get('Accept') === 'application/json') {
             if ($this->getUser()) {
@@ -26,8 +39,17 @@ class SecurityController extends AbstractController
 
             $error = $authenticationUtils->getLastAuthenticationError();
             if ($error) {
+                // Ne pas exposer les détails de l'erreur pour des raisons de sécurité
+                $errorMessage = 'Identifiants invalides';
+                if ($error instanceof AccountStatusException) {
+                    $errorMessage = 'Compte désactivé ou verrouillé';
+                } elseif ($error instanceof BadCredentialsException) {
+                    $errorMessage = 'Identifiants invalides';
+                } elseif ($error instanceof UsernameNotFoundException) {
+                    $errorMessage = 'Identifiants invalides';
+                }
                 return new JsonResponse([
-                    'error' => $error->getMessageKey()
+                    'error' => $errorMessage
                 ], Response::HTTP_UNAUTHORIZED);
             }
 
@@ -53,5 +75,24 @@ class SecurityController extends AbstractController
     {
         // controller can be blank: it will never be called!
         throw new \Exception('Don\'t forget to activate logout in security.yaml');
+    }
+
+    #[Route('/api/check-auth', name: 'app_check_auth', methods: ['GET'])]
+    public function checkAuth(): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user) {
+            return new JsonResponse([
+                'authenticated' => false
+            ], Response::HTTP_UNAUTHORIZED);
+        }
+
+        return new JsonResponse([
+            'authenticated' => true,
+            'user' => [
+                'email' => $user->getUserIdentifier(),
+                'roles' => $user->getRoles()
+            ]
+        ]);
     }
 }
