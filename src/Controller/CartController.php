@@ -3,10 +3,12 @@
 namespace App\Controller;
 
 use App\Entity\Cart;
-use App\Entity\Order;
+use App\Entity\CartItem;
 use App\Entity\Product;
+use App\Entity\Order;
 use App\Repository\CartRepository;
 use App\Repository\ProductRepository;
+use App\Repository\OrderRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -22,140 +24,198 @@ class CartController extends AbstractController
 {
     private EntityManagerInterface $entityManager;
     private ValidatorInterface $validator;
+    private CartRepository $cartRepository;
+    private ProductRepository $productRepository;
+    private OrderRepository $orderRepository;
 
     public function __construct(
         EntityManagerInterface $entityManager,
-        ValidatorInterface $validator
+        ValidatorInterface $validator,
+        CartRepository $cartRepository,
+        ProductRepository $productRepository,
+        OrderRepository $orderRepository
     ) {
         $this->entityManager = $entityManager;
         $this->validator = $validator;
+        $this->cartRepository = $cartRepository;
+        $this->productRepository = $productRepository;
+        $this->orderRepository = $orderRepository;
     }
 
     #[Route('', name: 'app_cart_get', methods: ['GET'])]
     public function getCart(): JsonResponse
     {
-        try {
-            $user = $this->getUser();
-            $cart = $user->getCart();
+        $user = $this->getUser();
+        $cart = $this->cartRepository->findOneBy(['user' => $user]);
 
-            if (!$cart) {
-                $cart = new Cart();
-                $cart->setUser($user);
-                $this->entityManager->persist($cart);
-                $this->entityManager->flush();
-            }
-
-            return $this->json([
-                'id' => $cart->getId(),
-                'products' => $cart->getProducts()->map(fn(Product $product) => [
-                    'id' => $product->getId(),
-                    'name' => $product->getName(),
-                    'price' => $product->getPrice(),
-                ])->toArray(),
-            ]);
-        } catch (\Exception $e) {
-            return $this->json([
-                'error' => 'Une erreur est survenue lors de la récupération du panier',
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        if (!$cart) {
+            $cart = new Cart();
+            $cart->setUser($user);
+            $this->entityManager->persist($cart);
+            $this->entityManager->flush();
         }
+
+        $cartItems = $cart->getCartItems();
+        $products = [];
+        foreach ($cartItems as $cartItem) {
+            $product = $cartItem->getProduct();
+            $products[] = [
+                'id' => $product->getId(),
+                'name' => $product->getName(),
+                'price' => $product->getPrice(),
+                'quantity' => $cartItem->getQuantity()
+            ];
+        }
+
+        return $this->json([
+            'id' => $cart->getId(),
+            'products' => $products
+        ]);
     }
 
     #[Route('/products/{id}', name: 'app_cart_add_product', methods: ['POST'])]
-    public function addProduct(Product $product): JsonResponse
+    public function addProduct(int $id): JsonResponse
     {
-        try {
-            $user = $this->getUser();
-            $cart = $user->getCart();
+        $user = $this->getUser();
+        $cart = $this->cartRepository->findOneBy(['user' => $user]);
 
-            if (!$cart) {
-                $cart = new Cart();
-                $cart->setUser($user);
-            }
-
-            $cart->addProduct($product);
-            $this->entityManager->flush();
-
-            return $this->json([
-                'message' => 'Produit ajouté au panier',
-            ]);
-        } catch (\Exception $e) {
-            return $this->json([
-                'error' => 'Une erreur est survenue lors de l\'ajout du produit',
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        if (!$cart) {
+            $cart = new Cart();
+            $cart->setUser($user);
+            $this->entityManager->persist($cart);
         }
+
+        $product = $this->productRepository->find($id);
+        if (!$product) {
+            return $this->json(['error' => 'Produit non trouvé'], 404);
+        }
+
+        $cartItem = null;
+        foreach ($cart->getCartItems() as $item) {
+            if ($item->getProduct()->getId() === $id) {
+                $cartItem = $item;
+                break;
+            }
+        }
+
+        if ($cartItem) {
+            $cartItem->setQuantity($cartItem->getQuantity() + 1);
+        } else {
+            $cartItem = new CartItem();
+            $cartItem->setCart($cart);
+            $cartItem->setProduct($product);
+            $cartItem->setQuantity(1);
+            $this->entityManager->persist($cartItem);
+        }
+
+        $this->entityManager->flush();
+
+        return $this->json(['message' => 'Produit ajouté au panier']);
+    }
+
+    #[Route('/products/{id}', name: 'app_cart_update_product', methods: ['PUT'])]
+    public function updateProductQuantity(int $id, Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        $cart = $this->cartRepository->findOneBy(['user' => $user]);
+
+        if (!$cart) {
+            return $this->json(['error' => 'Panier non trouvé'], 404);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        if (!isset($data['quantity']) || !is_numeric($data['quantity']) || $data['quantity'] < 1) {
+            return $this->json(['error' => 'Quantité invalide'], 400);
+        }
+
+        $cartItem = null;
+        foreach ($cart->getCartItems() as $item) {
+            if ($item->getProduct()->getId() === $id) {
+                $cartItem = $item;
+                break;
+            }
+        }
+
+        if (!$cartItem) {
+            return $this->json(['error' => 'Produit non trouvé dans le panier'], 404);
+        }
+
+        $cartItem->setQuantity($data['quantity']);
+        $this->entityManager->flush();
+
+        return $this->json(['message' => 'Quantité mise à jour']);
     }
 
     #[Route('/products/{id}', name: 'app_cart_remove_product', methods: ['DELETE'])]
-    public function removeProduct(Product $product): JsonResponse
+    public function removeProduct(int $id): JsonResponse
     {
-        try {
-            $user = $this->getUser();
-            $cart = $user->getCart();
+        $user = $this->getUser();
+        $cart = $this->cartRepository->findOneBy(['user' => $user]);
 
-            if (!$cart) {
-                return $this->json([
-                    'error' => 'Le panier est vide',
-                ], Response::HTTP_NOT_FOUND);
-            }
-
-            $cart->removeProduct($product);
-            $this->entityManager->flush();
-
-            return $this->json([
-                'message' => 'Produit retiré du panier',
-            ]);
-        } catch (\Exception $e) {
-            return $this->json([
-                'error' => 'Une erreur est survenue lors de la suppression du produit',
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        if (!$cart) {
+            return $this->json(['error' => 'Panier non trouvé'], 404);
         }
+
+        $cartItem = null;
+        foreach ($cart->getCartItems() as $item) {
+            if ($item->getProduct()->getId() === $id) {
+                $cartItem = $item;
+                break;
+            }
+        }
+
+        if (!$cartItem) {
+            return $this->json(['error' => 'Produit non trouvé dans le panier'], 404);
+        }
+
+        $this->entityManager->remove($cartItem);
+        $this->entityManager->flush();
+
+        return $this->json(['message' => 'Produit retiré du panier']);
     }
 
     #[Route('/validate', name: 'app_cart_validate', methods: ['POST'])]
     public function validateCart(): JsonResponse
     {
-        try {
-            $user = $this->getUser();
-            $cart = $user->getCart();
+        $user = $this->getUser();
+        $cart = $this->cartRepository->findOneBy(['user' => $user]);
 
-            if (!$cart || $cart->getProducts()->isEmpty()) {
-                return $this->json([
-                    'error' => 'Le panier est vide',
-                ], Response::HTTP_BAD_REQUEST);
-            }
-
-            // Créer la commande
-            $order = new Order();
-            $order->setUser($user);
-            
-            // Calculer le total et ajouter les produits
-            $total = 0;
-            foreach ($cart->getProducts() as $product) {
-                $order->addProduct($product);
-                $total += $product->getPrice();
-            }
-            $order->setTotal($total);
-
-            // Vider le panier
-            foreach ($cart->getProducts() as $product) {
-                $cart->removeProduct($product);
-            }
-
-            $this->entityManager->persist($order);
-            $this->entityManager->flush();
-
-            return $this->json([
-                'message' => 'Commande créée avec succès',
-                'order' => [
-                    'id' => $order->getId(),
-                    'total' => $order->getTotal(),
-                    'createdAt' => $order->getCreatedAt(),
-                ],
-            ]);
-        } catch (\Exception $e) {
-            return $this->json([
-                'error' => 'Une erreur est survenue lors de la validation de la commande',
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        if (!$cart) {
+            return $this->json(['error' => 'Panier non trouvé'], 404);
         }
+
+        $cartItems = $cart->getCartItems();
+        if ($cartItems->isEmpty()) {
+            return $this->json(['error' => 'Le panier est vide'], 400);
+        }
+
+        $order = new Order();
+        $order->setUser($user);
+        $order->setTotal(0);
+        $this->entityManager->persist($order);
+
+        $total = 0;
+        foreach ($cartItems as $cartItem) {
+            $product = $cartItem->getProduct();
+            $total += $product->getPrice() * $cartItem->getQuantity();
+        }
+        $order->setTotal($total);
+
+        $this->entityManager->flush();
+
+        // Vider le panier
+        foreach ($cartItems as $cartItem) {
+            $this->entityManager->remove($cartItem);
+        }
+        $this->entityManager->flush();
+
+        return $this->json([
+            'message' => 'Commande créée avec succès',
+            'order' => [
+                'id' => $order->getId(),
+                'total' => $order->getTotal(),
+                'createdAt' => $order->getCreatedAt()->format('c')
+            ]
+        ]);
     }
 }

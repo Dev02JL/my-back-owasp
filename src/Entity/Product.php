@@ -117,4 +117,15 @@ class Product
         }
         return $this;
     }
+
+    public function getName(): ?string
+    {
+        return $this->title;
+    }
+
+    public function setName(string $name): static
+    {
+        $this->title = $name;
+        return $this;
+    }
 } 

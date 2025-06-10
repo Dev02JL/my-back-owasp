@@ -19,12 +19,12 @@ class Cart
     #[ORM\JoinColumn(nullable: false)]
     private ?User $user = null;
 
-    #[ORM\ManyToMany(targetEntity: Product::class)]
-    private Collection $products;
+    #[ORM\OneToMany(mappedBy: 'cart', targetEntity: CartItem::class, orphanRemoval: true)]
+    private Collection $cartItems;
 
     public function __construct()
     {
-        $this->products = new ArrayCollection();
+        $this->cartItems = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -44,24 +44,29 @@ class Cart
     }
 
     /**
-     * @return Collection<int, Product>
+     * @return Collection<int, CartItem>
      */
-    public function getProducts(): Collection
+    public function getCartItems(): Collection
     {
-        return $this->products;
+        return $this->cartItems;
     }
 
-    public function addProduct(Product $product): static
+    public function addCartItem(CartItem $cartItem): static
     {
-        if (!$this->products->contains($product)) {
-            $this->products->add($product);
+        if (!$this->cartItems->contains($cartItem)) {
+            $this->cartItems->add($cartItem);
+            $cartItem->setCart($this);
         }
         return $this;
     }
 
-    public function removeProduct(Product $product): static
+    public function removeCartItem(CartItem $cartItem): static
     {
-        $this->products->removeElement($product);
+        if ($this->cartItems->removeElement($cartItem)) {
+            if ($cartItem->getCart() === $this) {
+                $cartItem->setCart(null);
+            }
+        }
         return $this;
     }
 }
