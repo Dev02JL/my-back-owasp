@@ -66,8 +66,7 @@ class CartController extends AbstractController
                 'id' => $product->getId(),
                 'name' => $product->getName(),
                 'price' => $product->getPrice(),
-                'quantity' => $cartItem->getQuantity(),
-                'stock' => $product->getStock()
+                'quantity' => $cartItem->getQuantity()
             ];
         }
 
@@ -94,11 +93,6 @@ class CartController extends AbstractController
             return $this->json(['error' => 'Produit non trouvé'], 404);
         }
 
-        // Vérification du stock
-        if ($product->getStock() <= 0) {
-            return $this->json(['error' => 'Produit en rupture de stock'], 400);
-        }
-
         $cartItem = null;
         foreach ($cart->getCartItems() as $item) {
             if ($item->getProduct()->getId() === $id) {
@@ -108,13 +102,8 @@ class CartController extends AbstractController
         }
 
         if ($cartItem) {
-            // Vérification de la quantité maximale
             if ($cartItem->getQuantity() >= self::MAX_QUANTITY) {
                 return $this->json(['error' => 'Quantité maximale atteinte'], 400);
-            }
-            // Vérification du stock disponible
-            if ($cartItem->getQuantity() >= $product->getStock()) {
-                return $this->json(['error' => 'Stock insuffisant'], 400);
             }
             $cartItem->setQuantity($cartItem->getQuantity() + 1);
         } else {
@@ -160,12 +149,6 @@ class CartController extends AbstractController
 
         if (!$cartItem) {
             return $this->json(['error' => 'Produit non trouvé dans le panier'], 404);
-        }
-
-        // Vérification du stock disponible
-        $product = $cartItem->getProduct();
-        if ($quantity > $product->getStock()) {
-            return $this->json(['error' => 'Stock insuffisant'], 400);
         }
 
         $cartItem->setQuantity($quantity);
@@ -217,16 +200,6 @@ class CartController extends AbstractController
             return $this->json(['error' => 'Le panier est vide'], 400);
         }
 
-        // Vérification du stock pour tous les produits
-        foreach ($cartItems as $cartItem) {
-            $product = $cartItem->getProduct();
-            if ($cartItem->getQuantity() > $product->getStock()) {
-                return $this->json([
-                    'error' => 'Stock insuffisant pour le produit ' . $product->getName()
-                ], 400);
-            }
-        }
-
         $order = new Order();
         $order->setUser($user);
         $order->setTotal(0);
@@ -236,9 +209,6 @@ class CartController extends AbstractController
         foreach ($cartItems as $cartItem) {
             $product = $cartItem->getProduct();
             $total += $product->getPrice() * $cartItem->getQuantity();
-            
-            // Mise à jour du stock
-            $product->setStock($product->getStock() - $cartItem->getQuantity());
         }
         $order->setTotal($total);
 

@@ -20,8 +20,6 @@ class ProductController extends AbstractController
     private const MAX_TITLE_LENGTH = 255;
     private const MIN_TITLE_LENGTH = 3;
     private const MAX_IMAGE_URL_LENGTH = 2048;
-    private const MAX_STOCK = 1000;
-    private const MIN_STOCK = 0;
 
     public function __construct(
         private EntityManagerInterface $entityManager,
@@ -76,8 +74,8 @@ class ProductController extends AbstractController
             }
 
             // Validation des champs requis
-            if (!isset($data['title']) || !isset($data['price']) || !isset($data['stock'])) {
-                return new JsonResponse(['message' => 'Titre, prix et stock requis'], Response::HTTP_BAD_REQUEST);
+            if (!isset($data['title']) || !isset($data['price'])) {
+                return new JsonResponse(['message' => 'Titre et prix requis'], Response::HTTP_BAD_REQUEST);
             }
 
             // Validation du titre
@@ -92,17 +90,9 @@ class ProductController extends AbstractController
                 return new JsonResponse(['message' => 'Le prix doit être un nombre positif'], Response::HTTP_BAD_REQUEST);
             }
 
-            // Validation du stock
-            if (!is_numeric($data['stock']) || $data['stock'] < self::MIN_STOCK || $data['stock'] > self::MAX_STOCK) {
-                return new JsonResponse([
-                    'message' => 'Le stock doit être un nombre entre ' . self::MIN_STOCK . ' et ' . self::MAX_STOCK
-                ], Response::HTTP_BAD_REQUEST);
-            }
-
             $product = new Product();
             $product->setTitle($data['title']);
             $product->setPrice((float) $data['price']);
-            $product->setStock((int) $data['stock']);
 
             // Gestion de l'image si présente
             if (isset($data['image'])) {
@@ -170,15 +160,6 @@ class ProductController extends AbstractController
                     return new JsonResponse(['message' => 'Le prix doit être un nombre positif'], Response::HTTP_BAD_REQUEST);
                 }
                 $product->setPrice((float) $data['price']);
-            }
-
-            if (isset($data['stock'])) {
-                if (!is_numeric($data['stock']) || $data['stock'] < self::MIN_STOCK || $data['stock'] > self::MAX_STOCK) {
-                    return new JsonResponse([
-                        'message' => 'Le stock doit être un nombre entre ' . self::MIN_STOCK . ' et ' . self::MAX_STOCK
-                    ], Response::HTTP_BAD_REQUEST);
-                }
-                $product->setStock((int) $data['stock']);
             }
 
             if (isset($data['image'])) {

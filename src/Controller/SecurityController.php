@@ -27,7 +27,6 @@ class SecurityController extends AbstractController
             ], 429);
         }
 
-        // Si la requête est en JSON ou si l'utilisateur est déjà authentifié
         if ($request->getContentType() === 'json' || $request->headers->get('Accept') === 'application/json') {
             if ($this->getUser()) {
                 return new JsonResponse([
@@ -39,7 +38,6 @@ class SecurityController extends AbstractController
 
             $error = $authenticationUtils->getLastAuthenticationError();
             if ($error) {
-                // Ne pas exposer les détails de l'erreur pour des raisons de sécurité
                 $errorMessage = 'Identifiants invalides';
                 if ($error instanceof AccountStatusException) {
                     $errorMessage = 'Compte désactivé ou verrouillé';
@@ -58,10 +56,8 @@ class SecurityController extends AbstractController
             ], Response::HTTP_UNAUTHORIZED);
         }
 
-        // get the login error if there is one
         $error = $authenticationUtils->getLastAuthenticationError();
 
-        // last username entered by the user
         $lastUsername = $authenticationUtils->getLastUsername();
 
         return $this->render('security/login.html.twig', [
@@ -73,7 +69,6 @@ class SecurityController extends AbstractController
     #[Route('/logout', name: 'app_logout')]
     public function logout(): void
     {
-        // controller can be blank: it will never be called!
         throw new \Exception('Don\'t forget to activate logout in security.yaml');
     }
 

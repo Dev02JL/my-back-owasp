@@ -59,7 +59,6 @@ class ReviewController extends AbstractController
             return new JsonResponse(['message' => 'Utilisateur non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        // Vérifier si l'utilisateur a déjà laissé un avis
         $existingReview = $this->reviewRepository->findOneBy([
             'user' => $user,
             'product' => $product
@@ -74,12 +73,10 @@ class ReviewController extends AbstractController
             return new JsonResponse(['message' => 'Données invalides'], Response::HTTP_BAD_REQUEST);
         }
 
-        // Validation de la note
         if (!isset($data['rating']) || !is_numeric($data['rating']) || $data['rating'] < 1 || $data['rating'] > 5) {
             return new JsonResponse(['message' => 'La note doit être un nombre entre 1 et 5'], Response::HTTP_BAD_REQUEST);
         }
 
-        // Validation du message
         if (isset($data['message'])) {
             if (strlen($data['message']) > 1000) {
                 return new JsonResponse(['message' => 'Le message ne doit pas dépasser 1000 caractères'], Response::HTTP_BAD_REQUEST);
