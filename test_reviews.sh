@@ -16,7 +16,7 @@ echo "----------------------------------------"
 # Étape 1 : Authentification
 echo -e "\n1️⃣ Authentification"
 TOKEN=$(curl -s -k -X POST -H "Content-Type: application/json" \
-    -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" \
+    -d "{\"username\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" \
     "$API_URL/api/login_check" | jq -r '.token')
 
 if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then

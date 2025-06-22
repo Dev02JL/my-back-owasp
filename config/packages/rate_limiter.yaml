@@ -3,4 +3,4 @@ framework:
     login:
       policy: 'sliding_window'
       limit: 5
-      interval: '1 minute'
+      interval: '1 minute' 

@@ -36,7 +36,7 @@ fi
 # Test de l'authentification
 echo -e "\n${GREEN}Test 3:${NC} Authentification avec les identifiants"
 RESPONSE=$(curl -s -k -X POST -H "Content-Type: application/json" \
-    -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" \
+    -d "{\"username\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" \
     "$API_URL/api/login_check")
 
 TOKEN=$(echo $RESPONSE | grep -o '"token":"[^"]*' | cut -d'"' -f4)

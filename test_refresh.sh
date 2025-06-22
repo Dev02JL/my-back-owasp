@@ -17,7 +17,7 @@ echo "--------------------------------------"
 echo -e "\n${GREEN}Étape 1:${NC} Authentification initiale"
 AUTH_RESPONSE=$(curl -s -k -X POST "$API_URL/api/login_check" \
     -H "Content-Type: application/json" \
-    -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")
+    -d "{\"username\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")
 
 TOKEN=$(echo $AUTH_RESPONSE | grep -o '"token":"[^"]*' | cut -d'"' -f4)
 REFRESH_TOKEN=$(echo $AUTH_RESPONSE | grep -o '"refresh_token":"[^"]*' | cut -d'"' -f4)

@@ -16,7 +16,7 @@ echo "---------------------------"
 # Authentification pour obtenir le token
 echo -e "\n${GREEN}Étape 1:${NC} Authentification"
 RESPONSE=$(curl -s -k -X POST -H "Content-Type: application/json" \
-    -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" \
+    -d "{\"username\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" \
     "$API_URL/api/login_check")
 
 TOKEN=$(echo $RESPONSE | grep -o '"token":"[^"]*' | cut -d'"' -f4)

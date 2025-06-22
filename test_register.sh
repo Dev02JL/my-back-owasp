@@ -15,7 +15,7 @@ echo "----------------------------------------"
 
 # Test 1: Inscription avec des données valides
 echo -e "\n${GREEN}Test 1:${NC} Inscription avec des données valides"
-RESPONSE=$(curl -s -k -X POST "$API_URL/register" \
+RESPONSE=$(curl -s -k -X POST "$API_URL/api/register" \
     -H "Content-Type: application/json" \
     -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")
 
@@ -28,7 +28,7 @@ fi
 
 # Test 2: Tentative d'inscription sans email
 echo -e "\n${GREEN}Test 2:${NC} Tentative d'inscription sans email"
-RESPONSE=$(curl -s -k -X POST "$API_URL/register" \
+RESPONSE=$(curl -s -k -X POST "$API_URL/api/register" \
     -H "Content-Type: application/json" \
     -d "{\"password\":\"$PASSWORD\"}")
 
@@ -41,7 +41,7 @@ fi
 
 # Test 3: Tentative d'inscription sans mot de passe
 echo -e "\n${GREEN}Test 3:${NC} Tentative d'inscription sans mot de passe"
-RESPONSE=$(curl -s -k -X POST "$API_URL/register" \
+RESPONSE=$(curl -s -k -X POST "$API_URL/api/register" \
     -H "Content-Type: application/json" \
     -d "{\"email\":\"$EMAIL\"}")
 
@@ -54,7 +54,7 @@ fi
 
 # Test 4: Tentative d'inscription avec un email invalide
 echo -e "\n${GREEN}Test 4:${NC} Tentative d'inscription avec un email invalide"
-RESPONSE=$(curl -s -k -X POST "$API_URL/register" \
+RESPONSE=$(curl -s -k -X POST "$API_URL/api/register" \
     -H "Content-Type: application/json" \
     -d "{\"email\":\"invalid-email\",\"password\":\"$PASSWORD\"}")
 
@@ -67,7 +67,7 @@ fi
 
 # Test 5: Tentative d'inscription avec un mot de passe trop court
 echo -e "\n${GREEN}Test 5:${NC} Tentative d'inscription avec un mot de passe trop court"
-RESPONSE=$(curl -s -k -X POST "$API_URL/register" \
+RESPONSE=$(curl -s -k -X POST "$API_URL/api/register" \
     -H "Content-Type: application/json" \
     -d "{\"email\":\"$EMAIL\",\"password\":\"short\"}")
 

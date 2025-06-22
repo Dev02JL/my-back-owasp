@@ -32,7 +32,7 @@ check_response() {
 print_message "🔑 Authentification..."
 TOKEN=$(curl -s -k -X POST "$API_URL/api/login_check" \
     -H "Content-Type: application/json" \
-    -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" | jq -r '.token')
+    -d "{\"username\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" | jq -r '.token')
 
 if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
     print_error "❌ Échec de l'authentification"
@@ -176,7 +176,7 @@ echo "🔍 Test des routes du contrôleur de commandes"
 # 1. Connexion de l'utilisateur
 echo -e "\n${GREEN}1. Connexion de l'utilisateur${NC}"
 TOKEN=$(curl -s -k -X POST -H "Content-Type: application/json" \
-    -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" \
+    -d "{\"username\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" \
     "$API_URL/api/login_check" | jq -r '.token')
 
 if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
