@@ -82,12 +82,15 @@ class Product
 
     public function getImage(): ?string
     {
-        return $this->image;
+        if (!$this->image) {
+            return null;
+        }
+        return '/' . $this->image;
     }
 
     public function setImage(?string $image): static
     {
-        $this->image = $image;
+        $this->image = $image ? ltrim($image, '/') : null;
         return $this;
     }
 
